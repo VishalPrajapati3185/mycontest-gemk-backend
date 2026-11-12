@@ -8,60 +8,36 @@ app.use(express.urlencoded({ extended: true }));
 
 const PORT = process.env.PORT || 3000;
 
-// Firebase Admin connection
 if (!admin.apps.length) {
-  const serviceAccountJson =
-    process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 
-  if (serviceAccountJson) {
-    admin.initializeApp({
-      credential: admin.credential.cert(
-        JSON.parse(serviceAccountJson)
-      )
-    });
+  if (!serviceAccount) {
+    throw new Error("Firebase credentials missing");
   }
+
+  admin.initializeApp({
+    credential: admin.credential.cert(
+      JSON.parse(serviceAccount)
+    )
+  });
 }
 
-const db = admin.apps.length
-  ? admin.firestore()
-  : null;
+app.locals.db = admin.firestore();
 
-// Health check
 app.get("/", (req, res) => {
-  res.status(200).send("MyContest GemK Backend is running");
+  res.send("MyContest GemK Backend is running");
 });
 
 app.get("/health", (req, res) => {
-  res.status(200).json({
+  res.json({
     success: true,
     service: "MyContest GemK Backend",
-    firebase: Boolean(db)
+    firebase: true
   });
 });
 
-// GemK callback endpoint
-app.all("/gemk/callback", async (req, res) => {
-  try {
-    if (!db) {
-      return res.status(503).send("Firebase not configured");
-    }
-
-    // GemK callback verification and reward
-    // processing will be added after confirming
-    // GemK's official callback parameters.
-
-    return res.status(501).json({
-      success: false,
-      message: "GemK callback verification is pending"
-    });
-
-  } catch (error) {
-    console.error("GemK callback error:", error.message);
-
-    return res.status(500).send("Server error");
-  }
-});
+app.use("/gemk", require("./gemk_postback"));
 
 app.listen(PORT, () => {
-  console.log(`GemK Backend running on port ${PORT}`);
+  console.log("GemK Backend running on port " + PORT);
 });
